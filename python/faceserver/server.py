@@ -8,6 +8,8 @@ import boto
 IMG_BUCKET_NAME = 'face2014.nc'
 IMG_DIR = 'img/test01/'
 
+NROWS = 7
+NCOLUMNS = 7
 
 class PickImageHandler(tornado.web.RequestHandler):
 
@@ -30,14 +32,14 @@ class PickImagesHandler(tornado.web.RequestHandler):
         rows = []
 
         n = 0
-        for i in range(0, 5):
+        for i in range(0, NROWS):
             current_row = {}
             rows.append(current_row)
 
             images = []
             current_row['images'] = images
 
-            for j in range(0, 5):
+            for j in range(0, NCOLUMNS):
                 images.append(
                         {'url': random.choice(self.image_urls),
                          'id': 'image-' + str(n)})
