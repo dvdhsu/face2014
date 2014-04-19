@@ -20,6 +20,33 @@ class PickImageHandler(tornado.web.RequestHandler):
         self.write(json.dumps(data))
 
 
+class PickImagesHandler(tornado.web.RequestHandler):
+
+    def initialize(self, image_urls=None):
+        self.image_urls = image_urls
+
+    def get(self):
+        data = {}
+        rows = []
+
+        n = 0
+        for i in range(0, 5):
+            current_row = {}
+            rows.append(current_row)
+
+            images = []
+            current_row['images'] = images
+
+            for j in range(0, 5):
+                images.append(
+                        {'url': random.choice(self.image_urls),
+                         'id': 'image-' + str(n)})
+                n += 1
+
+        data['rows'] = rows
+        self.write(json.dumps(data))
+
+
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.write("Face 2014!")
@@ -49,8 +76,12 @@ def main():
 
     application = tornado.web.Application(
         [("/", MainHandler),
+         ("/html/(.*)", tornado.web.StaticFileHandler, 
+                {"path": "./html"}),
          ("/api/v1/pickimage", PickImageHandler,
-          {"image_urls": image_urls})])
+                {"image_urls": image_urls}),
+         ("/api/v1/pickimages", PickImagesHandler,
+                {"image_urls": image_urls})])
 
     print 'serving face2014...'
 
