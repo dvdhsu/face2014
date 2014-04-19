@@ -1,12 +1,13 @@
 import random
 import json
+import copy
 
 import tornado.ioloop
 import tornado.web
 import boto
 
 IMG_BUCKET_NAME = 'face2014.nc'
-IMG_DIR = 'img/test01/'
+IMG_DIR = 'img/test03/'
 
 NROWS = 7
 NCOLUMNS = 7
@@ -15,10 +16,14 @@ class PickImageHandler(tornado.web.RequestHandler):
 
     def initialize(self, image_urls=None):
         self.image_urls = image_urls
+        random.shuffle(self.image_urls)
+        self.current = 0
 
     def get(self):
         data = {}
-        data['image'] = random.choice(self.image_urls)
+        data['image'] = self.image_urls[self.current]
+        if self.current >= len(self.image_urls):
+            random.shuffle(self.image_urls)
         self.write(json.dumps(data))
 
 
@@ -31,6 +36,9 @@ class PickImagesHandler(tornado.web.RequestHandler):
         data = {}
         rows = []
 
+        src_images = copy.copy(self.image_urls)
+        random.shuffle(src_images)
+
         n = 0
         for i in range(0, NROWS):
             current_row = {}
@@ -41,7 +49,7 @@ class PickImagesHandler(tornado.web.RequestHandler):
 
             for j in range(0, NCOLUMNS):
                 images.append(
-                        {'url': random.choice(self.image_urls),
+                        {'url': src_images[n],
                          'id': 'image-' + str(n)})
                 n += 1
 
