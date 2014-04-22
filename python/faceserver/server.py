@@ -24,6 +24,9 @@ class PickImageHandler(tornado.web.RequestHandler):
         data['image'] = self.image_urls[self.current]
         if self.current >= len(self.image_urls):
             random.shuffle(self.image_urls)
+
+        data['row'] = int(random.random() * NROWS)
+        data['column'] = int(random.random() * NCOLUMNS)
         self.write(json.dumps(data))
 
 

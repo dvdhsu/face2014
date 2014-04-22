@@ -17,6 +17,12 @@
     <!--internals-->
     <script src="app.js" type="text/javascript"></script>
     <script src="facecontroller.js" text="text/javascript"></script>
+
+    <style>
+        html, body { background: #101010 }
+        div {padding: 50px 50px 50px 50px;}
+    </style>
+
 </head>
 
 <body>
@@ -26,7 +32,7 @@
                 <tbody>
                 <tr ng-repeat="row in data.rows">
                     <td ng-repeat="image in row.images">
-                        <img src="{{image.url}}">
+                        <img ng-src="{{image.url}}">
                     </td>
                 </tr>
                 </tbody>
