@@ -12,35 +12,45 @@ IMG_DIR = 'img/test03/'
 NROWS = 7
 NCOLUMNS = 7
 
+class ImageShuffler():
+
+    def __init__(self, images):
+
+        self.images = images
+        random.shuffle(self.images)
+        self.current = 0
+
+    def next(self):
+        self.current += 1
+        if self.current >= len(self.images):
+            self.current = 0
+
+        return self.images[self.current]
+
+
 class PickImageHandler(tornado.web.RequestHandler):
 
-    def initialize(self, image_urls=None):
-        self.image_urls = image_urls
-        random.shuffle(self.image_urls)
-        self.current = 0
+    def initialize(self, shuffler=None):
+        self.shuffler = shuffler
 
     def get(self):
         data = {}
-        data['image'] = self.image_urls[self.current]
-        if self.current >= len(self.image_urls):
-            random.shuffle(self.image_urls)
 
+        data['image'] = self.shuffler.next()
         data['row'] = int(random.random() * NROWS)
         data['column'] = int(random.random() * NCOLUMNS)
+
         self.write(json.dumps(data))
 
 
 class PickImagesHandler(tornado.web.RequestHandler):
 
-    def initialize(self, image_urls=None):
-        self.image_urls = image_urls
+    def initialize(self, shuffler=None):
+        self.shuffler = shuffler
 
     def get(self):
         data = {}
         rows = []
-
-        src_images = copy.copy(self.image_urls)
-        random.shuffle(src_images)
 
         n = 0
         for i in range(0, NROWS):
@@ -52,7 +62,7 @@ class PickImagesHandler(tornado.web.RequestHandler):
 
             for j in range(0, NCOLUMNS):
                 images.append(
-                        {'url': src_images[n],
+                        {'url': self.shuffler.next(),
                          'id': 'image-' + str(n)})
                 n += 1
 
@@ -79,22 +89,26 @@ def discover_images():
             continue
         image_urls.append(image_url)
 
+    random.shuffle(image_urls)
+
     return image_urls
 
 
 def main():
 
     print 'discovering images...'
-    image_urls = discover_images()
+    images = discover_images()
+
+    shuffler = ImageShuffler(images)
 
     application = tornado.web.Application(
         [("/", MainHandler),
          ("/html/(.*)", tornado.web.StaticFileHandler, 
                 {"path": "./html"}),
          ("/api/v1/pickimage", PickImageHandler,
-                {"image_urls": image_urls}),
+                {"shuffler": shuffler}),
          ("/api/v1/pickimages", PickImagesHandler,
-                {"image_urls": image_urls})])
+                {"shuffler": shuffler})])
 
     print 'serving face2014...'
 
