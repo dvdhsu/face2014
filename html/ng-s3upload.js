@@ -60,7 +60,7 @@ angular.module('ngS3upload.services', []).
     };
 
 
-    this.upload = function (scope, signed_request, file) {
+    this.upload = function (scope, signed_request, s3_object_name, file) {
 
       var deferred = $q.defer();
       scope.attempt = true;
@@ -82,6 +82,7 @@ angular.module('ngS3upload.services', []).
             scope.progress = 'unable to compute';
           }
           var msg = {type: 'progress', value: scope.progress};
+          console.log(msg);
           scope.$emit('s3upload:progress', msg);
           if (typeof deferred.notify === 'function') {
             deferred.notify(msg);
@@ -94,9 +95,22 @@ angular.module('ngS3upload.services', []).
         scope.$apply(function () {
           self.uploads--;
           scope.uploading = false;
-          if (xhr.status === 204) { // successful upload
+          console.log('done');
+          console.log(xhr.status);
+          if (xhr.status === 204 || xhr.status == 200) { // successful upload
+            console.log('success');
             scope.success = true;
             deferred.resolve(xhr);
+
+            // create thumbnail upon upload completion.
+            var thumbnail_xhr = new XMLHttpRequest();
+            var thumbnail_url = '/api/v1/thumbnailer';
+            thumbnail_url = thumbnail_url + '?s3_object_name=' + s3_object_name;
+            console.log(thumbnail_url)
+
+            thumbnail_xhr.open('POST', thumbnail_url, true);
+            thumbnail_xhr.send();
+
             scope.$emit('s3upload:success', xhr);
           } else {
             scope.success = false;
@@ -207,6 +221,7 @@ angular.module('ngS3upload.directives', []).
                   var key = opts.folder + (new Date()).getTime() + '-' + S3Uploader.randomString(16) + "." + ext;
                   S3Uploader.upload(scope,
                       s3Options.signed_request,
+                      s3Options.s3_object_name,
                       selectedFile
                     ).then(function () {
                       ngModel.$setViewValue(s3Uri + key);

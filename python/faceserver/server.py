@@ -1,3 +1,4 @@
+import os
 import datetime
 import pytz
 import random
@@ -11,15 +12,22 @@ import hmac
 import hashlib
 import base64
 import json
+import tempfile
 
+from tornado.concurrent import run_on_executor
+from concurrent.futures import ThreadPoolExecutor
 import tornado.ioloop
 import tornado.web
+import tornado.gen
 import boto
+from PIL import Image
+from PIL import ImageOps
 
 s3 = boto.connect_s3()
 
 IMG_BUCKET_NAME = 'face2014-nc-x65yu'
 IMG_DIR = 'img/test01'
+IMG_STAGING = 'img/staging'
 
 NROWS = 7
 NCOLUMNS = 7
@@ -29,15 +37,21 @@ class ImageShuffler():
     def __init__(self, images):
 
         self.images = images
-        random.shuffle(self.images)
-        self.current = 0
+        self.deal()
+
+    def deal(self):
+        self.hand = self.images[:]
+        random.shuffle(self.hand)
 
     def next(self):
-        self.current += 1
-        if self.current >= len(self.images):
-            self.current = 0
+        if not self.hand:
+            self.deal()
 
-        return self.images[self.current]
+        return self.hand.pop()
+
+    def add(self, item):
+        self.hand.append(item)
+        self.images.append(item)
 
 
 class PickImageHandler(tornado.web.RequestHandler):
@@ -60,7 +74,7 @@ class SignUpload(tornado.web.RequestHandler):
 
     def get(self):
 
-        object_name = IMG_DIR + '/' + uuid.uuid4().hex + '-' +\
+        object_name = IMG_STAGING + '/' + uuid.uuid4().hex + '-' +\
                 urllib.quote_plus(self.get_argument('name'))
 
         object_type = self.get_argument('type')
@@ -70,8 +84,71 @@ class SignUpload(tornado.web.RequestHandler):
             headers={'Content-Type': object_type, 'x-amz-acl': 'public-read'})
 
         self.write(json.dumps({
-            'signed_request': signed_request}))
+            'signed_request': signed_request,
+            's3_object_name': object_name}))
         self.finish()
+
+
+class Thumbnailer(tornado.web.RequestHandler):
+    """
+    Given a url pointing to a staged image, download
+    the image and create a thumbnail.
+
+    Upload the thumbnail to the 'release' image folder.
+    """
+
+    executor = ThreadPoolExecutor(10)
+
+    def initialize(self, shuffler=None):
+        self.shuffler = shuffler
+
+    @tornado.gen.coroutine
+    def post(self):
+
+        s3_object_name = self.get_argument('s3_object_name')
+        print 'creating thumbnail for', s3_object_name
+        new_url = yield self.make_thumbnail(s3_object_name)
+        print new_url
+        self.shuffler.add(new_url)
+
+        self.write('done')
+        self.finish()
+
+    @run_on_executor
+    def make_thumbnail(self, s3_object_name):
+
+        handle, thumbnail_path = tempfile.mkstemp(prefix='thumbnail-')
+        s3bucket = s3.get_bucket(IMG_BUCKET_NAME)
+        s3key = s3bucket.get_key(s3_object_name)
+
+        print 'downloading', s3_object_name
+        s3key.get_contents_to_file(open(thumbnail_path, 'w'))
+
+        print 'making thumbnail', thumbnail_path
+
+        im = Image.open(thumbnail_path)
+        im_thumbnail = ImageOps.fit(im, (172, 172), Image.ANTIALIAS)
+
+        print 'saving thumbnail'
+        thumbnail_path_out = thumbnail_path + '.out.jpg'
+        print thumbnail_path_out
+        im_thumbnail.save(thumbnail_path_out)
+        print 'done'
+
+        s3_thumbnail_object_name = IMG_DIR + '/' + os.path.basename(s3_object_name)
+
+        print 'uploading', s3_thumbnail_object_name
+        print 'making new key'
+        thumbnail_key = s3bucket.new_key(s3_thumbnail_object_name)
+        print 'uploading file'
+        thumbnail_key.set_contents_from_file(open(thumbnail_path_out, 'rb'))
+        print 'setting acl'
+        thumbnail_key.set_acl('public-read')
+
+        print 'cleaning up', thumbnail_path
+        os.remove(thumbnail_path)
+
+        return thumbnail_key.generate_url(100000, force_http=True, query_auth=False)
 
 
 class PickImagesHandler(tornado.web.RequestHandler):
@@ -112,8 +189,7 @@ def discover_images():
 
     image_urls = []
 
-    s3_conn = boto.connect_s3()
-    s3_bucket = s3_conn.get_bucket(IMG_BUCKET_NAME)
+    s3_bucket = s3.get_bucket(IMG_BUCKET_NAME)
 
     for result in list(s3_bucket.list(prefix=IMG_DIR)):
         image_url = (result.generate_url(
@@ -121,6 +197,8 @@ def discover_images():
         if not image_url.endswith('.jpg'):
             continue
         image_urls.append(image_url)
+
+    print image_urls
 
     random.shuffle(image_urls)
 
@@ -142,7 +220,9 @@ def main():
                 {"shuffler": shuffler}),
          ("/api/v1/pickimages", PickImagesHandler,
                 {"shuffler": shuffler}),
-         ("/api/v1/signupload", SignUpload)])
+         ("/api/v1/signupload", SignUpload),
+         ('/api/v1/thumbnailer', Thumbnailer,
+                {"shuffler": shuffler})])
 
     print 'serving face2014...'
 
