@@ -60,11 +60,14 @@ class SignUpload(tornado.web.RequestHandler):
 
     def get(self):
 
-        object_name = IMG_DIR + '/' + uuid.uuid4().hex
+        object_name = IMG_DIR + '/' + uuid.uuid4().hex + '-' +\
+                urllib.quote_plus(self.get_argument('name'))
+
+        object_type = self.get_argument('type')
 
         signed_request = s3.generate_url(
             1000, 'PUT', IMG_BUCKET_NAME, key=object_name,
-            headers={'Content-Type': 'image/jpeg', 'x-amz-acl': 'public-read'})
+            headers={'Content-Type': object_type, 'x-amz-acl': 'public-read'})
 
         self.write(json.dumps({
             'signed_request': signed_request}))

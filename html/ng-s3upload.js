@@ -31,9 +31,15 @@ angular.module('ngS3upload.services', []).
     this.uploads = 0;
     var self = this;
 
-    this.getUploadOptions = function (uri) {
+    this.getUploadOptions = function (uri, file) {
       console.log('getting sig from ' + uri);
       var deferred = $q.defer();
+
+      // add filename and filetype parameters.
+      // this allows us to construct the correct signature server side.
+      console.log(file);
+      uri = uri + '?type=' + file.type +'&name=' + file.name;
+      console.log(uri);
       $http.get(uri).
         success(function (response, status) {
           console.log('got sig');
@@ -55,13 +61,11 @@ angular.module('ngS3upload.services', []).
 
 
     this.upload = function (scope, signed_request, file) {
-      console.log('beginning upload');
-      uri = signed_request;
+
       var deferred = $q.defer();
       scope.attempt = true;
 
       var xhr = new XMLHttpRequest();
-      console.log('with credentials ' + xhr.withCredentials);
 
       xhr.upload.addEventListener("progress", uploadProgress, false);
       xhr.addEventListener("load", uploadComplete, false);
@@ -125,10 +129,10 @@ angular.module('ngS3upload.services', []).
       // Send the file
       scope.uploading = true;
       this.uploads++;
-      console.log('posting to ' + uri);
-      xhr.open('PUT', uri, true);
+      console.log('posting to ' + signed_request);
+      xhr.open('PUT', signed_request, true);
 
-      xhr.setRequestHeader('Content-Type', 'image/jpeg');
+      xhr.setRequestHeader('Content-Type', file.type);
       xhr.setRequestHeader('x-amz-acl', 'public-read');
 
       console.log('sending form data');
@@ -197,7 +201,7 @@ angular.module('ngS3upload.directives', []).
               var ext = filename.split('.').pop();
 
               scope.$apply(function () {
-                S3Uploader.getUploadOptions(opts.getOptionsUri).then(function (s3Options) {
+                S3Uploader.getUploadOptions(opts.getOptionsUri, selectedFile).then(function (s3Options) {
                   ngModel.$setValidity('uploading', false);
                   var s3Uri = 'https://' + bucket + '.s3.amazonaws.com/';
                   var key = opts.folder + (new Date()).getTime() + '-' + S3Uploader.randomString(16) + "." + ext;
