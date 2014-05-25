@@ -1,4 +1,5 @@
 app.controller('FaceController', function($scope, $interval, Images, Image) {
+
     // query our images resource
     Images.get(function(data) {
         $scope.data = data;
@@ -60,7 +61,7 @@ app.directive(
             function startFade(){
                 fader.width();
                 fader.addClass('fadeOut');
-                setTimeout(teardownFade, 1000);
+                setTimeout(teardownFade, 3000);
             }
 
             function teardownFade(){

@@ -1,10 +1,22 @@
+import datetime
+import pytz
 import random
 import json
 import copy
+import uuid
+import urllib
+import base64
+import sha
+import hmac
+import hashlib
+import base64
+import json
 
 import tornado.ioloop
 import tornado.web
 import boto
+
+s3 = boto.connect_s3()
 
 IMG_BUCKET_NAME = 'face2014.nc'
 IMG_DIR = 'img/test03/'
@@ -41,6 +53,41 @@ class PickImageHandler(tornado.web.RequestHandler):
         data['column'] = int(random.random() * NCOLUMNS)
 
         self.write(json.dumps(data))
+        self.finish()
+
+
+class SignUpload(tornado.web.RequestHandler):
+
+    def get(self):
+
+        expiration = datetime.datetime.now(pytz.utc) + datetime.timedelta(hours=1)
+
+        policy = {
+            'expiration': expiration.isoformat(),
+            'conditions':
+                [
+                    {'bucket': 'face2014.nc'},
+                    ['starts-with', '$key', ''],
+                    {'acl': 'public-read'},
+                    ['starts-with', '$Content-type', ''],
+                    ['content-length-range', 0, 10 * 1024 * 1024]
+                ]
+            }
+
+        print json.dumps(policy, indent=4)
+        policy_encoded = base64.b64encode(json.dumps(policy)).replace('\n', '')
+
+        signature = base64.b64encode(
+            hmac.new(boto.config.get('Credentials', 'aws_secret_access_key'),
+                     policy_encoded, sha).digest()).replace('\n', '')
+
+        key = boto.config.get('Credentials', 'aws_access_key_id')
+
+        self.write(json.dumps({
+            'key': key,
+            'signature': signature,
+            'policy': policy_encoded}))
+        self.finish()
 
 
 class PickImagesHandler(tornado.web.RequestHandler):
@@ -68,11 +115,13 @@ class PickImagesHandler(tornado.web.RequestHandler):
 
         data['rows'] = rows
         self.write(json.dumps(data))
+        self.finish()
 
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.write("Face 2014!")
+        self.finish()
 
 
 def discover_images():
@@ -108,7 +157,8 @@ def main():
          ("/api/v1/pickimage", PickImageHandler,
                 {"shuffler": shuffler}),
          ("/api/v1/pickimages", PickImagesHandler,
-                {"shuffler": shuffler})])
+                {"shuffler": shuffler}),
+         ("/api/v1/signupload", SignUpload)])
 
     print 'serving face2014...'
 
