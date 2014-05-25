@@ -18,8 +18,8 @@ import boto
 
 s3 = boto.connect_s3()
 
-IMG_BUCKET_NAME = 'face2014.nc'
-IMG_DIR = 'img/test03/'
+IMG_BUCKET_NAME = 'face2014-nc-x65yu'
+IMG_DIR = 'img/test01'
 
 NROWS = 7
 NCOLUMNS = 7
@@ -60,33 +60,14 @@ class SignUpload(tornado.web.RequestHandler):
 
     def get(self):
 
-        expiration = datetime.datetime.now(pytz.utc) + datetime.timedelta(hours=1)
+        object_name = IMG_DIR + '/' + uuid.uuid4().hex
 
-        policy = {
-            'expiration': expiration.isoformat(),
-            'conditions':
-                [
-                    {'bucket': 'face2014.nc'},
-                    ['starts-with', '$key', ''],
-                    {'acl': 'public-read'},
-                    ['starts-with', '$Content-type', ''],
-                    ['content-length-range', 0, 10 * 1024 * 1024]
-                ]
-            }
-
-        print json.dumps(policy, indent=4)
-        policy_encoded = base64.b64encode(json.dumps(policy)).replace('\n', '')
-
-        signature = base64.b64encode(
-            hmac.new(boto.config.get('Credentials', 'aws_secret_access_key'),
-                     policy_encoded, sha).digest()).replace('\n', '')
-
-        key = boto.config.get('Credentials', 'aws_access_key_id')
+        signed_request = s3.generate_url(
+            1000, 'POST', IMG_BUCKET_NAME, object_name,
+            headers={'Content-type': 'image/JPEG', 'x-amz-acl': 'public-read'})
 
         self.write(json.dumps({
-            'key': key,
-            'signature': signature,
-            'policy': policy_encoded}))
+            'signed_request': signed_request}))
         self.finish()
 
 
