@@ -15,6 +15,7 @@ import json
 import tempfile
 
 from tornado.concurrent import run_on_executor
+from tornado.options import define, options, parse_command_line
 from concurrent.futures import ThreadPoolExecutor
 import tornado.ioloop
 import tornado.web
@@ -28,6 +29,15 @@ s3 = boto.connect_s3()
 IMG_BUCKET_NAME = 'face2014-nc-x65yu'
 IMG_DIR = 'img/test01'
 IMG_STAGING = 'img/staging'
+
+
+# Define server options.
+define('image_dir', default=IMG_DIR, 
+       help='dir within image bucket where images are discovered')
+define('image_bucket', default=IMG_BUCKET_NAME,
+       help='aws bucket containing images')
+define('port', default=9898,
+       help='port serving the website')
 
 NROWS = 7
 NCOLUMNS = 7
@@ -80,7 +90,7 @@ class SignUpload(tornado.web.RequestHandler):
         object_type = self.get_argument('type')
 
         signed_request = s3.generate_url(
-            1000, 'PUT', IMG_BUCKET_NAME, key=object_name,
+            1000, 'PUT', options.image_bucket, key=object_name,
             headers={'Content-Type': object_type, 'x-amz-acl': 'public-read'})
 
         self.write(json.dumps({
@@ -118,7 +128,7 @@ class Thumbnailer(tornado.web.RequestHandler):
     def make_thumbnail(self, s3_object_name):
 
         handle, thumbnail_path = tempfile.mkstemp(prefix='thumbnail-')
-        s3bucket = s3.get_bucket(IMG_BUCKET_NAME)
+        s3bucket = s3.get_bucket(options.image_bucket)
         s3key = s3bucket.get_key(s3_object_name)
 
         print 'downloading', s3_object_name
@@ -135,7 +145,8 @@ class Thumbnailer(tornado.web.RequestHandler):
         im_thumbnail.save(thumbnail_path_out)
         print 'done'
 
-        s3_thumbnail_object_name = IMG_DIR + '/' + os.path.basename(s3_object_name)
+        s3_thumbnail_object_name =\
+                tornado.optins.image_dir + '/' + os.path.basename(s3_object_name)
 
         print 'uploading', s3_thumbnail_object_name
         print 'making new key'
@@ -189,9 +200,9 @@ def discover_images():
 
     image_urls = []
 
-    s3_bucket = s3.get_bucket(IMG_BUCKET_NAME)
+    s3_bucket = s3.get_bucket(options.image_bucket)
 
-    for result in list(s3_bucket.list(prefix=IMG_DIR)):
+    for result in list(s3_bucket.list(prefix=options.image_dir)):
         image_url = (result.generate_url(
             1000, force_http=True, query_auth=False))
         if not image_url.endswith('.jpg'):
@@ -206,6 +217,9 @@ def discover_images():
 
 
 def main():
+
+    # Parse command line options.
+    parse_command_line()
 
     print 'discovering images...'
     images = discover_images()
@@ -226,5 +240,5 @@ def main():
 
     print 'serving face2014...'
 
-    application.listen(8888)
+    application.listen(options.port)
     tornado.ioloop.IOLoop.instance().start()
