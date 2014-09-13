@@ -20,28 +20,21 @@
     <!--internals-->
     <script src="app.js" type="text/javascript"></script>
     <script src="facecontroller.js" text="text/javascript"></script>
+    <script src="upload.js" text="text/javascript"></script>
 
     <!--third-party-->
-    <script src="ng-s3upload.js"></script>
+    <script src="ext/jasny-bootstrap.min.js"></script>
+    <script src="ext/ng-s3upload.js"></script>
+    <script src="ext/jquery.Jcrop.js"></script>
+    <script type="text/javascript" src="//api.filepicker.io/v1/filepicker.js"></script>
 
+    <!--internal CSS-->
+    <link rel="stylesheet" type="text/css" href="app.css">
 
-    <style type="text/css">
-        html, body { background: #101010 }
-        div.container {padding: 50px 50px 50px 50px;}
+    <!-- third party CSS-->
 
-        img.fader {
-            display: none;
-            position: absolute;}
-
-        img.fader.show {
-            display: block;
-            transition: opacity 3000ms ease;}
-
-        img.fader.fadeOut {
-            opacity: 0;}
-
-    </style>
-
+    <link rel="stylesheet" type="text/css" href="ext/jasny-bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="ext/jquery.Jcrop.css">
 </head>
 
 <body>
@@ -57,8 +50,33 @@
                 </tbody>
             </table>
         </div>
-        <!--<div s3-upload bucket="'face2014.nc'" ng-model="product.remote_product_file_url"
-             s3-upload-options="{getOptionsUri: '/api/v1/signupload', folder: 'test_upload/'}">-->
+        <button class="btn btn-success btn-lg" data-toggle="modal" data-target="#uploadModal">ADD-Face </button>
+        <!-- Button trigger modal -->
+        <!-- Modal -->
+        <div class="modal fade" id="uploadModal" role="dialog">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span class="sr-only">Close</span></button>
+                <h4 class="modal-title" id="myModalLabel">Add your face</h4>
+              </div>
+              <div class="modal-body">
+                <div class="row">
+                  <div style="max-width: 600px; max-height: 450px;">
+                    <img id="uploadedImage" src="" style="max-width: 600px; max-height: 450px;">
+                </div>
+                </div>
+                <div class="row">
+                  <button class="btn btn-default" id="uploadFaceButton">Choose face</button>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Save changes</button>
+              </div>
+            </div>
+          </div>
+        </div>
     </div>
 </body>
 

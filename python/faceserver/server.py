@@ -216,7 +216,7 @@ def discover_images():
     return image_urls
 
 
-def main():
+if __name__ == "__main__":
 
     # Parse command line options.
     parse_command_line()

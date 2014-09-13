@@ -1,0 +1,17 @@
+html, body { background: #101010 }
+div.container {padding: 50px 50px 50px 50px;}
+
+img.fader {
+    display: none;
+    position: absolute;}
+
+img.fader.show {
+    display: block;
+    transition: opacity 3000ms ease;}
+
+img.fader.fadeOut {
+    opacity: 0;}
+
+.modal-dialog {
+  width: 650px;
+}
